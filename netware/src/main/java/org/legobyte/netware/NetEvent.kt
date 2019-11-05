@@ -1,6 +1,8 @@
-package org.sunrse.netware
+package org.legobyte.netware
 
 import androidx.annotation.IntDef
+
+typealias NetEventListener = (event:NetEvent) -> Unit
 
 // types
 const val DATA = 1
@@ -25,7 +27,6 @@ data class NetEvent(
     @State
     val state:Int
 ){
-
     // returns true if this is an event of ActiveConnection
     val hasActiveConnection:Boolean
         get() = intArrayOf(CONNECTING, CONNECTED).contains(state)
@@ -33,7 +34,6 @@ data class NetEvent(
     // returns true if this is an event of InactiveConnection
     val isDisconnectedOrSuspended:Boolean
         get() = intArrayOf(DISCONNECTING, DISCONNECTED, SUSPENDED).contains(state)
-
 }
 
 

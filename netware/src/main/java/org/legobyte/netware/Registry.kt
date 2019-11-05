@@ -1,4 +1,4 @@
-package org.sunrse.netware
+package org.legobyte.netware
 
 interface Registry {
 

@@ -3,55 +3,69 @@ package org.sunrse.netware.app
 import android.annotation.SuppressLint
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Handler
 import android.util.Log
-import android.view.ViewGroup
-import androidx.core.os.HandlerCompat.postDelayed
 import androidx.lifecycle.Observer
 import kotlinx.android.synthetic.main.activity_main.*
-import org.sunrse.netware.*
+import org.legobyte.netware.*
 
 @SuppressLint("Registered")
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var registry: Registry
+
+    @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-
-        if(isConnectedToNetwork){
-            if(isWifiConnection){
-
-            }
-            if(isCellularConnection){
-
-            }
-        }else{
+        // this observer will be unregistered automatically based on the lifecycle state
+        Netware.getInstance(context=this).observe(lifecycleOwner = this, observer = Observer { event ->
             //
-        }
+        })
 
-        Netware.getInstance(this).observe(this, Observer {event->
+
+        // you should call registry.unregister() method by yourself. or memory leak will occur.
+        registry = Netware.getInstance(context = this).observeForever(Observer {
 
         })
-        netware.observe(this, Observer {event->
 
-        })
-        netware with this observe {
-            Log.i("MainActivityNet", "NetWare type: ${it.type}, state: ${it.state} ${this@MainActivity.toString()}")
+        // `this` is an instance of LifeCycleOwner. `Activity` or `Fragment` or any component that is an instance of `LifeCycleOwner`
+        netware with this observe {event->
+
+            val connectionStatusText = when(event.state){
+                DISCONNECTED, DISCONNECTING, SUSPENDED -> "No Network"
+                CONNECTING, CONNECTED -> "Connected" // equals to event.hasActiveConnection
+                else -> "Unknown"
+            }
+            val connectionTypeText = when(event.type){
+                DATA -> "Mobile data"
+                WIFI -> "Wifi"
+                VPN -> "VPN"
+                // maybe no network. check with event.state
+                else -> ""
+            }
+
+            Log.d("NetWareAct", "newEvent: $event")
+            if(event.hasActiveConnection){
+                textView.text = "Connected to ${
+                when(event.type) {
+                    DATA -> "Mobile data"
+                    WIFI -> "Wifi"
+                    VPN -> "VPN"
+                    else -> "Unknown network"
+                }
+                }"
+            }else{
+                textView.text = "No Network"
+            }
         }
-
-        Handler().let {
-            val parent = tv.parent as ViewGroup
-            it.postDelayed({
-                parent.removeView(tv)
-            }, 4_000)
-
-            it.postDelayed({
-                parent.addView(tv)
-            }, 10_000)
-        }
+    }
 
 
-
+    override fun onDestroy() {
+        super.onDestroy()
+        // call this method when your done with Netware
+        if(::registry.isInitialized)
+            registry.unregister()
     }
 }

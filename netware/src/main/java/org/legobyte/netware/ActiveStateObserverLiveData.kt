@@ -1,4 +1,4 @@
-package org.sunrse.netware
+package org.legobyte.netware
 
 import androidx.lifecycle.MutableLiveData
 
@@ -14,7 +14,7 @@ typealias ActiveStateChangeCallback = (isActive:Boolean) -> Unit
 
 // A super-simple LiveData subclass that notifies about active status of LifeCycles
 /*internal */
-class ActiveStateObserverLiveData<T>(private val callback:ActiveStateChangeCallback) : MutableLiveData<T>() {
+class ActiveStateObserverLiveData<T>(private val callback: ActiveStateChangeCallback) : MutableLiveData<T>() {
 
 
     /**

@@ -1,18 +1,20 @@
 @file:JvmName("NetwareNetworkInterceptors")
-package org.sunrse.netware
+package org.legobyte.netware
 
 import android.annotation.TargetApi
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.*
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkInfo
 import androidx.core.content.getSystemService
-
-typealias NetEventListener = (event:NetEvent) -> Unit
 
 
 abstract class Interceptor(protected val context: Context, private val listener: NetEventListener) : NetEventListener {
+    protected val mConMan = context.getSystemService<ConnectivityManager>()!!
     abstract var shouldListen : Boolean
 
     override fun invoke(event: NetEvent) {
@@ -20,9 +22,8 @@ abstract class Interceptor(protected val context: Context, private val listener:
     }
 }
 
+
 internal class DefaultInterceptor(context: Context, listener: NetEventListener) : Interceptor(context, listener) {
-
-
     private val mNetworkEventReceiver by lazy {
         NetworkChangeReceiver(this)
     }
@@ -46,18 +47,18 @@ internal class DefaultInterceptor(context: Context, listener: NetEventListener) 
 
     private inner class NetworkChangeReceiver(private val eventListener: NetEventListener) : BroadcastReceiver() {
 
-        private var oldState = NO_STATE
+        private var oldEvent:NetEvent? = null
 
         override fun onReceive(context: Context, intent: Intent) {
             // connectivity change event received
             if(ConnectivityManager.CONNECTIVITY_ACTION == intent.action){
-                val networkInfo = intent.getParcelableExtra(ConnectivityManager.EXTRA_NETWORK_INFO) as NetworkInfo? ?: return
+                val networkInfo = intent.getParcelableExtra(ConnectivityManager.EXTRA_NETWORK_INFO) as NetworkInfo? ?: mConMan.activeNetworkInfo ?: return
                 val state= networkInfo.mapState()
-                if(state == oldState)
-                    return
-                oldState = state
                 val type = networkInfo.mapType()
-
+                val newEvent = NetEvent(type, state)
+                if(newEvent == oldEvent)
+                    return
+                oldEvent = newEvent
                 eventListener(NetEvent(type, state))
             }
         }
@@ -90,7 +91,6 @@ internal class DefaultInterceptor(context: Context, listener: NetEventListener) 
 @TargetApi(24)
 internal class NewApiInterceptor(context: Context, listener: NetEventListener) :
     Interceptor(context, listener) {
-    private val mConMan = context.getSystemService<ConnectivityManager>()!!
     private val callback by lazy {
         NetCallback(context, this)
     }
@@ -109,7 +109,8 @@ internal class NewApiInterceptor(context: Context, listener: NetEventListener) :
     private inner class NetCallback(context: Context, private val eventListener: NetEventListener) : ConnectivityManager.NetworkCallback() {
 
         private val mConMan = context.getSystemService<ConnectivityManager>()!!
-        private var oldState : Int = NO_STATE
+
+        private var oldEvent:NetEvent? = null
 
         override fun onAvailable(network: Network) {
             intercept(network, CONNECTED)
@@ -118,16 +119,20 @@ internal class NewApiInterceptor(context: Context, listener: NetEventListener) :
             intercept(network, DISCONNECTED)
         }
 
+        override fun onUnavailable() {
+
+        }
         override fun onLosing(network: Network, maxMsToLive: Int) {
             intercept(network, DISCONNECTING)
         }
 
         private fun intercept(network: Network, @State state:Int){
-            if(state == oldState)
+            val capabilities = mConMan.getNetworkCapabilities(network)
+            val newEvent = NetEvent(capabilities?.mapType() ?: OTHERS, state)
+            if(newEvent == oldEvent)
                 return
-            oldState = state
-            val capabilities = mConMan.getNetworkCapabilities(network) ?: return
-            eventListener(NetEvent(capabilities.mapType(), state))
+            oldEvent = newEvent
+            eventListener(newEvent)
         }
     }
 

@@ -1,4 +1,4 @@
-package org.sunrse.netware
+package org.legobyte.netware
 
 import android.content.Context
 import android.os.Build
@@ -10,9 +10,10 @@ import java.io.Closeable
 class Netware private constructor(context:Context) {
 
     // net event container. calls will observe this LiveData
-    private val liveNetEvent = ActiveStateObserverLiveData<NetEvent>{ isActive->
-        interceptor.shouldListen = isActive
-    }
+    private val liveNetEvent =
+        ActiveStateObserverLiveData<NetEvent> { isActive ->
+            interceptor.shouldListen = isActive
+        }
 
     // listens for NetEvents and publishes this event to observers
     private val netEventListener : NetEventListener = {event ->
@@ -22,14 +23,26 @@ class Netware private constructor(context:Context) {
             liveNetEvent.postValue(event)
     }
 
+    init {
+        // set initial state
+        // callbacks wont work if no network in initialization state
+        if(!context.isConnectedToNetwork){
+            // set initial state
+            liveNetEvent.postValue(NetEvent(OTHERS, DISCONNECTED))
+        }
+    }
+
     // listener for NetEvents
     private val interceptor = when(Build.VERSION.SDK_INT){
-        in 0..24 -> DefaultInterceptor(context.applicationContext, netEventListener)
+        in 0..28 -> DefaultInterceptor(
+            context.applicationContext,
+            netEventListener
+        )
         else -> NewApiInterceptor(context.applicationContext, netEventListener)
     }
 
     // Observe for NetEvent data in this Lifecycle scope
-    fun observe(lifecycleOwner: LifecycleOwner, observer:Observer<NetEvent>):Registry{
+    fun observe(lifecycleOwner: LifecycleOwner, observer:Observer<NetEvent>): Registry {
         liveNetEvent.observe(lifecycleOwner, observer)
         return RegisteredObserver(this, observer)
     }
