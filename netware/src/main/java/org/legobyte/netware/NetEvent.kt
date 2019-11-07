@@ -25,8 +25,9 @@ data class NetEvent(
     @NetType
     val type:Int,
     @State
-    val state:Int
-){
+    val state:Int,
+    val isConnectionSlow:Boolean
+)/*{
     // returns true if this is an event of ActiveConnection
     val hasActiveConnection:Boolean
         get() = intArrayOf(CONNECTING, CONNECTED).contains(state)
@@ -35,10 +36,12 @@ data class NetEvent(
     val isDisconnectedOrSuspended:Boolean
         get() = intArrayOf(DISCONNECTING, DISCONNECTED, SUSPENDED).contains(state)
 }
+*/
 
-
+@Target(AnnotationTarget.TYPE, AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.PROPERTY)
 @IntDef(CONNECTED, CONNECTING, DISCONNECTING, DISCONNECTED, UNKNOWN, SUSPENDED)
 annotation class State
 
+@Target(AnnotationTarget.TYPE, AnnotationTarget.FUNCTION, AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.PROPERTY)
 @IntDef(DATA, WIFI, VPN, OTHERS)
 annotation class NetType

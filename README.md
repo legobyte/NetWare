@@ -45,7 +45,7 @@ allprojects {
 In your AppLevel `build.gradle`
 ````gradle
 dependencies {
-    implementation 'org.legobyte:netware:1.0.0'
+    implementation 'org.legobyte:netware:1.0.1'
 }
 ````
 

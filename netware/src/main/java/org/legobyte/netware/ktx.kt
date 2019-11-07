@@ -3,11 +3,9 @@ package org.legobyte.netware
 
 import android.Manifest
 import android.content.Context
-import android.net.ConnectivityManager
 import android.os.Looper
 import android.view.View
 import androidx.annotation.RequiresPermission
-import androidx.core.content.getSystemService
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Observer
@@ -53,10 +51,3 @@ data class FluentView(val netware: Netware, val view: View)
 // checks whether the current thread is MainThread or not
 val isMainThread : Boolean
     get() = Looper.getMainLooper().thread === Thread.currentThread()
-val Context.isConnectedToNetwork : Boolean
-    get() = getSystemService<ConnectivityManager>()!!.activeNetworkInfo?.isConnectedOrConnecting == true
-val Context.isWifiConnection : Boolean
-    get() = getSystemService<ConnectivityManager>()!!.activeNetworkInfo?.type == ConnectivityManager.TYPE_WIFI
-val Context.isCellularConnection : Boolean
-    get() = getSystemService<ConnectivityManager>()!!.activeNetworkInfo?.type == ConnectivityManager.TYPE_MOBILE
-

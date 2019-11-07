@@ -13,8 +13,7 @@ import android.net.NetworkInfo
 import androidx.core.content.getSystemService
 
 
-abstract class Interceptor(protected val context: Context, private val listener: NetEventListener) : NetEventListener {
-    protected val mConMan = context.getSystemService<ConnectivityManager>()!!
+abstract class Interceptor(protected val context: Context, protected val netware: Netware, private val listener: NetEventListener) : NetEventListener {
     abstract var shouldListen : Boolean
 
     override fun invoke(event: NetEvent) {
@@ -23,7 +22,7 @@ abstract class Interceptor(protected val context: Context, private val listener:
 }
 
 
-internal class DefaultInterceptor(context: Context, listener: NetEventListener) : Interceptor(context, listener) {
+internal class DefaultInterceptor(context: Context, netware: Netware, listener: NetEventListener) : Interceptor(context, netware, listener) {
     private val mNetworkEventReceiver by lazy {
         NetworkChangeReceiver(this)
     }
@@ -52,45 +51,35 @@ internal class DefaultInterceptor(context: Context, listener: NetEventListener) 
         override fun onReceive(context: Context, intent: Intent) {
             // connectivity change event received
             if(ConnectivityManager.CONNECTIVITY_ACTION == intent.action){
-                val networkInfo = intent.getParcelableExtra(ConnectivityManager.EXTRA_NETWORK_INFO) as NetworkInfo? ?: mConMan.activeNetworkInfo ?: return
-                val state= networkInfo.mapState()
-                val type = networkInfo.mapType()
-                val newEvent = NetEvent(type, state)
+                val networkInfo = intent.getParcelableExtra(ConnectivityManager.EXTRA_NETWORK_INFO) as NetworkInfo? ?: netware.connectivityManager.activeNetworkInfo ?: return
+                val state= when(networkInfo.state){
+                    NetworkInfo.State.CONNECTED -> CONNECTED
+                    NetworkInfo.State.CONNECTING -> CONNECTING
+                    NetworkInfo.State.DISCONNECTED -> DISCONNECTED
+                    NetworkInfo.State.DISCONNECTING -> DISCONNECTING
+                    NetworkInfo.State.SUSPENDED -> SUSPENDED
+                    else -> UNKNOWN
+                }
+                val type = when(networkInfo.type){
+                    ConnectivityManager.TYPE_MOBILE-> DATA
+                    ConnectivityManager.TYPE_WIFI-> WIFI
+                    ConnectivityManager.TYPE_VPN-> VPN
+                    else -> OTHERS
+                }
+                val newEvent = NetEvent(type, state, netware.isConnectionSlow())
                 if(newEvent == oldEvent)
                     return
                 oldEvent = newEvent
-                eventListener(NetEvent(type, state))
+                eventListener(newEvent)
             }
         }
     }
 
-
-    @State
-    internal fun NetworkInfo.mapState() = when(state){
-        NetworkInfo.State.CONNECTED -> CONNECTED
-        NetworkInfo.State.CONNECTING -> CONNECTING
-        NetworkInfo.State.DISCONNECTED -> DISCONNECTED
-        NetworkInfo.State.DISCONNECTING -> DISCONNECTING
-        NetworkInfo.State.SUSPENDED -> SUSPENDED
-        else -> UNKNOWN
-    }
-
-    @NetType
-    internal fun NetworkInfo.mapType() = when(type){
-        ConnectivityManager.TYPE_MOBILE-> DATA
-        ConnectivityManager.TYPE_WIFI-> WIFI
-        ConnectivityManager.TYPE_VPN-> VPN
-        else -> OTHERS
-    }
-
-
-
-
 }
 
 @TargetApi(24)
-internal class NewApiInterceptor(context: Context, listener: NetEventListener) :
-    Interceptor(context, listener) {
+internal class NewApiInterceptor(context: Context, netware: Netware, listener: NetEventListener) :
+    Interceptor(context, netware, listener) {
     private val callback by lazy {
         NetCallback(context, this)
     }
@@ -99,9 +88,9 @@ internal class NewApiInterceptor(context: Context, listener: NetEventListener) :
             if(field == value)
                 return
             if(value){
-                mConMan.registerDefaultNetworkCallback(callback)
+                netware.connectivityManager.registerDefaultNetworkCallback(callback)
             }else{
-                mConMan.unregisterNetworkCallback(callback)
+                netware.connectivityManager.unregisterNetworkCallback(callback)
             }
             field = value
         }
@@ -128,7 +117,13 @@ internal class NewApiInterceptor(context: Context, listener: NetEventListener) :
 
         private fun intercept(network: Network, @State state:Int){
             val capabilities = mConMan.getNetworkCapabilities(network)
-            val newEvent = NetEvent(capabilities?.mapType() ?: OTHERS, state)
+            val type = when {
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)==true -> WIFI
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)==true -> DATA
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN)==true -> VPN
+                else -> OTHERS
+            }
+            val newEvent = NetEvent(type, state, netware.isConnectionSlow())
             if(newEvent == oldEvent)
                 return
             oldEvent = newEvent
@@ -136,15 +131,6 @@ internal class NewApiInterceptor(context: Context, listener: NetEventListener) :
         }
     }
 
-    @NetType
-    internal fun NetworkCapabilities.mapType() : Int {
-        return when {
-            hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> WIFI
-            hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> DATA
-            hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> VPN
-            else -> OTHERS
-        }
-    }
 }
 
 

@@ -46,7 +46,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             Log.d("NetWareAct", "newEvent: $event")
-            if(event.hasActiveConnection){
+            if(netware.isConnectedToNetwork()){
                 textView.text = "Connected to ${
                 when(event.type) {
                     DATA -> "Mobile data"
@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
                     VPN -> "VPN"
                     else -> "Unknown network"
                 }
-                }"
+                }${if(event.isConnectionSlow) ", Slow" else ""}"
             }else{
                 textView.text = "No Network"
             }
